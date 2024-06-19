@@ -1,0 +1,111 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Zvelte",
+	"patterns": [
+		{ "include": "#scope" }
+	],
+	"repository": {
+		"scope": {
+			"patterns": [
+				{ "include": "#comments" },
+				{ "include": "#tags" }
+			]
+		},
+
+		"comments": {
+			"name": "comment",
+			"begin": "<!--",
+			"end": "-->"
+		},
+
+		"attributes": {
+			"patterns": [
+				{ "include": "#attributes-directives" },
+				{ "include": "#attributes-keyvalue" },
+				{ "include": "#attributes-interpolated" }
+			]
+		},
+
+		"#attributes-directives": {},
+		"#attributes-keyvalue": {},
+		"#attributes-interpolated": {},
+
+		"tags": {
+			"patterns": [
+				{ "include": "#tags-general-end" },
+				{ "include": "#tags-general-start" }
+			]
+		},
+
+		"tags-name": {
+			"patterns": [
+				{
+					"match": "(zvelte|zone)(:)([a-z][\\w0-9:-]*)",
+					"captures": {
+						"1": { "name": "keyword.control" },
+						"2": { "name": "punctuation.definition.keyword" },
+						"3": { "name": "entity.name.tag" }
+					}
+				},
+				{
+					"match": "[a-z][\\w0-9:-]*",
+					"name": "entity.name.tag"
+				}
+			]
+		},
+
+		"tags-start-attributes": {
+			"begin": "\\G",
+			"end": "(?=/?>)",
+			"name": "meta.tag.start",
+			"patterns": [
+				{ "include": "#attributes" }
+			]
+		},
+
+		"tags-start-node": {
+			"match": "(<)([^\\s>/]*)",
+			"captures": {
+				"1": { "name": "punctuation.definition.tag" },
+				"2": { "patterns": [{ "include": "#tags-name" }] }
+			}
+		},
+
+		"tags-end-node": {
+			"match": "(</)(.*?)\\s*(>)|(/>)",
+			"captures": {
+				"1": { "name": "punctuation.definition.tag" },
+				"2": { "patterns": [{ "include": "#tags-name" }] },
+				"3": { "name": "punctuation.definition.tag" },
+				"4": { "name": "punctuation.definition.tag" }
+			}
+		},
+
+		"tags-general-start": {
+			"begin": "(<)([^/\\s>/]*)",
+			"end": "(/?>)",
+			"beginCaptures": {
+				"0": { "patterns": [{ "include": "#tags-start-node" }] }
+			},
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.tag" }
+			},
+			"patterns": [
+				{ "include": "#tags-start-attributes" }
+			]
+		},
+
+		"tags-general-end": {
+			"begin": "(</)([^\\s>]*)",
+			"end": "(>)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.tag" },
+				"2": { "patterns": [{ "include": "#tags-name" }] }
+			},
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.tag" }
+			}
+		}
+	},
+	"scopeName": "source.zvelte"
+}

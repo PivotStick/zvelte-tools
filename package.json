@@ -1,0 +1,25 @@
+{
+  "name": "zvelte",
+  "displayName": "Zvelte",
+  "description": "Language features supports for Zvelte",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "zvelte",
+      "aliases": ["Zvelte", "zvelte"],
+      "extensions": [".zvelte"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "zvelte",
+      "scopeName": "source.zvelte",
+      "path": "./syntaxes/zvelte.tmLanguage.json"
+    }]
+  }
+}
