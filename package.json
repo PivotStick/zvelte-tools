@@ -4,7 +4,7 @@
   "publisher": "zvelte",
   "icon": "icons/logo.png",
   "description": "Language supports for Zvelte",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -16,23 +16,34 @@
     "url": "https://github.com/PivotStick/zvelte-tools"
   },
   "contributes": {
-    "languages": [{
-      "id": "zvelte",
-      "aliases": ["Zvelte", "zvelte"],
-      "extensions": [".zvelte"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "zvelte",
-      "scopeName": "source.zvelte",
-      "path": "./syntaxes/zvelte.tmLanguage.json",
-      "injectTo": ["./syntaxes/zvelte.tmLanguage.json"],
-      "embeddedLanguages": {
-        "source.css": "css",
-        "source.css.scss": "scss",
-        "source.js": "javascript",
-        "source.ts": "typescript"
+    "languages": [
+      {
+        "id": "zvelte",
+        "aliases": [
+          "Zvelte",
+          "zvelte"
+        ],
+        "extensions": [
+          ".zvelte"
+        ],
+        "configuration": "./language-configuration.json"
       }
-    }]
+    ],
+    "grammars": [
+      {
+        "language": "zvelte",
+        "scopeName": "source.zvelte",
+        "path": "./syntaxes/zvelte.tmLanguage.json",
+        "injectTo": [
+          "./syntaxes/zvelte.tmLanguage.json"
+        ],
+        "embeddedLanguages": {
+          "source.css": "css",
+          "source.css.scss": "scss",
+          "source.js": "javascript",
+          "source.ts": "typescript"
+        }
+      }
+    ]
   }
 }
