@@ -8,8 +8,14 @@
 		"scope": {
 			"patterns": [
 				{ "include": "#comments" },
+				{ "include": "#special-tags" },
 				{ "include": "#tags" },
-				{ "include": "#interpolation" }
+				{ "include": "#interpolation" },
+				{
+					"begin": "(?<=>|})",
+					"end": "(?=<|{)",
+					"name": "text.zvelte"
+				}
 			]
 		},
 
@@ -26,7 +32,7 @@
 					"end": "}}",
 					"beginCaptures": { "0": { "name": "punctuation.section.embedded" } },
 					"endCaptures": { "0": { "name": "punctuation.section.embedded" } },
-					"contentName": "meta.embedded.expression.svelte",
+					"contentName": "meta.embedded.expression.zvelte",
 					"patterns": [
 						{ "include": "source.js" }
 					]
@@ -34,9 +40,177 @@
 			]
 		},
 
+		"special-tags": {
+			"patterns": [
+				{ "include": "#special-tags-void" },
+				{ "include": "#special-tags-block-end" },
+				{ "include": "#special-tags-block-begin" }
+			]
+		},
+	
+	  	"special-tags-keywords": {
+			"match": "([a-z]*)",
+			"captures": {
+				"1": { "patterns": [
+					{ "match": "if|elseif|else",     "name": "keyword.control.conditional" },
+					{ "match": "for|key",            "name": "keyword.control"             },
+					{ "match": "await|then|catch",   "name": "keyword.control.flow"        },
+					{ "match": "snippet",            "name": "keyword.control"             },
+					{ "match": "html",               "name": "keyword.other"               },
+					{ "match": "render",             "name": "keyword.other"               },
+					{ "match": "debug",              "name": "keyword.other.debugger"      },
+					{ "match": "const",              "name": "storage.type"                }]}
+			}
+		},
+
+		"special-tags-void": {
+			"begin": "(\\{\\{)\\s*@([a-z]*)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.block.begin.zvelte" },
+				"2": { "patterns": [{ "include": "#special-tags-keywords" }] }
+			},
+			"end": "(\\}\\})",
+			"endCaptures": { "1": { "name": "punctuation.definition.block.end.zvelte" } },
+			"name": "meta.special.$3.zvelte",
+			"patterns": [{ "include": "#special-tags-modes" }]
+		},
+
+		"special-tags-modes": {
+			"patterns": [
+				{
+					"begin": "(?<=(if|key|then|catch|snippet).*?)\\G",
+					"end": "(?=%\\s*})",
+					"name": "source.ts",
+					"patterns": [{ "include": "source.ts" }]
+				},
+				{
+					"begin": "(?<=(html|render).*?)\\G",
+					"end": "(?=}})",
+					"name": "source.ts",
+					"patterns": [{ "include": "source.ts" }]
+				},
+				{
+					"begin": "(?<=for.*?)\\G",
+					"end": "(?=%\\s*})",
+					"patterns": [
+						{
+							"begin": "\\G\\s*?(?=\\S)",
+							"end": "(?=(?:^\\s*|\\s+)(in))",
+							"contentName": "source.ts",
+							"patterns": [{ "include": "source.ts" }]
+						},
+						{
+							"begin": "(in)",
+							"beginCaptures": { "1": { "name": "keyword.control.as.zvelte" } },
+							"end": "(?=%\\s*})",
+							"patterns": [
+								{
+									"begin": "(#)\\(",
+									"beginCaptures": { "1": { "name": "entity.name.function" } },
+									"end": "\\)|(?=%\\s*})",
+									"captures": { "0": { "name": "meta.brace.round.zvelte" } },
+									"contentName": "source.ts",
+									"patterns": [{ "include": "source.ts" }]
+								},
+								{
+									"match": "(\\s*([_$[:alpha:]][_$[:alnum:]]*)\\s*)",
+									"captures": { "1": { "name": "source.ts", "patterns": [{ "include": "source.ts" }] } }
+								},
+								{ "match": ",", "name": "punctuation.separator.zvelte" }
+							]
+						}
+					]
+				}
+			]
+		},
+
+		"special-tags-block-begin": {
+			"begin": "({)\\s*(%)\\s*([a-z]*)",
+			"end": "(%)(})",
+			"name": "meta.special.start.zvelte",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.block.start.zvelte" },
+				"2": { "name": "entity.name.function" },
+				"3": { "patterns": [{ "include": "#special-tags-keywords" }] }
+			},
+			"endCaptures": {
+				"1": { "name": "entity.name.function" },
+				"2": { "name": "punctuation.definition.block.end.zvelte" }
+			},
+			"patterns": [{ "include": "#special-tags-modes" }]
+		},
+
+		"special-tags-block-end": {
+			"begin": "({)\\s*(%)\\s*(end)([a-z]*)",
+			"end": "(%)(})",
+			"name": "meta.special.end.zvelte",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.block.start.zvelte" },
+				"2": { "name": "entity.name.function" },
+				"3": { "name": "keyword.control.end" },
+				"4": { "patterns": [{ "include": "#special-tags-keywords" }] }
+			},
+			"endCaptures": {
+				"1": { "name": "entity.name.function" },
+				"2": { "name": "punctuation.definition.block.end.zvelte" }
+			}
+		},
+
 		"attributes": {
 			"patterns": [
+				{ "include": "#attributes-directives" },
 				{ "include": "#attributes-keyvalue" }
+			]
+		},
+
+		"attributes-directives-keywords": {
+			"patterns": [
+				{ "match": "on|use|bind",               "name": "keyword.control"             },
+				{ "match": "transition|in|out|animate", "name": "keyword.other.animation"     },
+				{ "match": "let",                       "name": "storage.type"                },
+				{ "match": "class|style",               "name": "entity.other.attribute-name" }
+			]
+		},
+
+		"attributes-directives-types": {
+			"patterns": [
+				{ "match": "(?<=(on):).*$",                            "name": "entity.name.type"   },
+				{ "match": "(?<=(bind):).*$",                          "name": "variable.parameter" },
+				{ "match": "(?<=(use|transition|in|out|animate):).*$", "name": "variable.function"  },
+				{ "match": "(?<=(let|class|style):).*$",               "name": "variable.parameter" }
+			]
+		},
+
+		"attributes-directives-types-assigned": {
+			"patterns": [
+			 { "match": "(?<=(bind):)this$", "name": "variable.language" 		         },
+			 { "match": "(?<=(bind):).*$",   "name": "entity.name.type"                  },
+			 { "match": "(?<=(class):).*$",  "name": "entity.other.attribute-name.class" },
+			 { "match": "(?<=(style):).*$",  "name": "support.type.property-name"        },
+			 { "include": "#attributes-directives-types" }
+			]
+		},
+
+		"attributes-directives": {
+			"begin": "(?<!<)(on|use|bind|transition|in|out|class)(:)(?:((?:--)?[_$[:alpha:]][_\\-$[:alnum:]]*(?=\\s*=))|((?:--)?[_$[:alpha:]][_\\-$[:alnum:]]*))((\\|\\w+)*)",
+			"beginCaptures": {
+				"1": { "patterns": [{ "include": "#attributes-directives-keywords" }] },
+				"2": { "name": "punctuation.definition.keyword" },
+				"3": { "patterns": [{ "include": "#attributes-directives-types-assigned" }] },
+				"4": { "patterns": [{ "include": "#attributes-directives-types" }] },
+				"5": { "patterns": [
+					 { "match": "\\w+", "name": "support.function" },
+					 { "match": "\\|'", "name": "punctuation.separator" }
+				   ]}
+			},
+			"end": "(?=\\s*+[^=\\s])",
+			"patterns": [
+				{
+					"begin": "=",
+					"beginCaptures": { "0": { "name": "punctuation.separator.key-value" } },
+					"end": "(?<=[^\\s=])(?!\\s*=)|(?=/?>)",
+					"patterns": [{ "include": "#attributes-value" }]
+				}
 			]
 		},
 
@@ -73,6 +247,9 @@
 
 		"attributes-value": {
 			"patterns": [
+				{
+					"include": "#interpolation"
+				},
 				{
 					"match": "(?:(['\"])([0-9._]+[\\w%]{,4})(\\1))|(?:([0-9._]+[\\w%]{,4})(?=\\s|/?>))",
 					"captures": {

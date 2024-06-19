@@ -26,6 +26,10 @@
         "extensions": [
           ".zvelte"
         ],
+        "icon": {
+          "dark": "./icons/logo.png",
+          "light": "./icons/logo.png"
+        },
         "configuration": "./language-configuration.json"
       }
     ],
