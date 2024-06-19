@@ -19,7 +19,14 @@
     "grammars": [{
       "language": "zvelte",
       "scopeName": "source.zvelte",
-      "path": "./syntaxes/zvelte.tmLanguage.json"
+      "path": "./syntaxes/zvelte.tmLanguage.json",
+      "injectTo": ["./syntaxes/zvelte.tmLanguage.json"],
+      "embeddedLanguages": {
+        "source.css": "css",
+        "source.css.scss": "scss",
+        "source.js": "javascript",
+        "source.ts": "typescript"
+      }
     }]
   }
 }

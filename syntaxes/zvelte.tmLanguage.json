@@ -8,7 +8,8 @@
 		"scope": {
 			"patterns": [
 				{ "include": "#comments" },
-				{ "include": "#tags" }
+				{ "include": "#tags" },
+				{ "include": "#interpolation" }
 			]
 		},
 
@@ -18,17 +19,82 @@
 			"end": "-->"
 		},
 
-		"attributes": {
+		"interpolation": {
 			"patterns": [
-				{ "include": "#attributes-directives" },
-				{ "include": "#attributes-keyvalue" },
-				{ "include": "#attributes-interpolated" }
+				{
+					"begin": "{{",
+					"end": "}}",
+					"beginCaptures": { "0": { "name": "punctuation.section.embedded" } },
+					"endCaptures": { "0": { "name": "punctuation.section.embedded" } },
+					"contentName": "meta.embedded.expression.svelte",
+					"patterns": [
+						{ "include": "source.js" }
+					]
+				}
 			]
 		},
 
-		"#attributes-directives": {},
-		"#attributes-keyvalue": {},
-		"#attributes-interpolated": {},
+		"attributes": {
+			"patterns": [
+				{ "include": "#attributes-keyvalue" }
+			]
+		},
+
+		"attributes-keyvalue": {
+			"begin": "((?:--)?[_$[:alpha:]][_\\-$[:alnum:]]*)",
+			"end": "(?=\\s*+[^=\\s])",
+			"beginCaptures": {
+				"0": {
+					"patterns": [
+						{
+							"match": "--.*",
+							"name": "support.type.property-name"
+						},
+						{
+							"match": ".*",
+							"name": "entity.other.attribute-name"
+						}
+					]
+				}
+			},
+			"patterns": [
+				{
+					"begin": "=",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.separator.key-value"
+						}
+					},
+					"end": "(?<=[^\\s=])(?!\\s*=)|(?=/?>)",
+					"patterns": [{ "include": "#attributes-value" }]
+				}
+			]
+		},
+
+		"attributes-value": {
+			"patterns": [
+				{
+					"match": "(?:(['\"])([0-9._]+[\\w%]{,4})(\\1))|(?:([0-9._]+[\\w%]{,4})(?=\\s|/?>))",
+					"captures": {
+						"1": { "name": "punctuation.definition.string.begin" },
+						"2": { "name": "constant.numeric.decimal" },
+						"3": { "name": "punctuation.definition.string.end" },
+						"4": { "name": "constant.numeric.decimal" }
+					}
+				},
+				{
+					"match": "([^\\s\"'=<>`/]|/(?!>))+",
+					"name": "string.unquoted",
+					"patterns": [{ "include": "#interpolation" }]
+				},
+				{
+					"name": "string.quoted",
+					"begin": "(['\"])",
+					"end": "\\1",
+					"patterns": [{ "include": "#interpolation" }]
+				}
+			]
+		},
 
 		"tags": {
 			"patterns": [
@@ -55,7 +121,7 @@
 		},
 
 		"tags-start-attributes": {
-			"begin": "\\G",
+			"begin": "",
 			"end": "(?=/?>)",
 			"name": "meta.tag.start",
 			"patterns": [

@@ -1,3 +1,5 @@
-<div>
-    Bonsoir je suis un singe
+<div bonsoir="bonsoir {{ 23 + "bonsoir" ~ quoi|oui(bonsoir, "lol", { lol: "oui" }) }}" on:click="{{ () => 2*3 }}">
+    Bonsoir je suis un singe  lolol {{ () => bonsoir }}
 </div>
+
+<zone:component this="{{ ref }}"></zone:component>
