@@ -56,6 +56,7 @@
 					{ "match": "for|key",            "name": "keyword.control"             },
 					{ "match": "await|then|catch",   "name": "keyword.control.flow"        },
 					{ "match": "snippet",            "name": "keyword.control"             },
+					{ "match": "import",        	 "name": "keyword.control"             },
 					{ "match": "html",               "name": "keyword.other"               },
 					{ "match": "render",             "name": "keyword.other"               },
 					{ "match": "debug",              "name": "keyword.other.debugger"      },
@@ -88,6 +89,26 @@
 					"end": "(?=}})",
 					"name": "source.ts",
 					"patterns": [{ "include": "source.ts" }]
+				},
+				{
+					"begin": "(?<=import.*?)\\G",
+					"end": "(?=%\\s*})",
+					"patterns": [
+						{
+							"begin": "\\G\\s*?(?=\\S)",
+							"end": "(?=(?:^\\s*|\\s+)(from))",
+							"contentName": "source.ts",
+							"patterns": [{ "include": "source.ts" }]
+						},
+						{
+							"begin": "(from)",
+							"beginCaptures": {
+								"1": { "name": "keyword.control.zvelte" }
+							},
+							"end": "(?=%\\s*})",
+							"patterns": [{ "include": "source.ts" }]
+						}
+					]
 				},
 				{
 					"begin": "(?<=for.*?)\\G",
@@ -289,6 +310,10 @@
 						"2": { "name": "punctuation.definition.keyword" },
 						"3": { "name": "entity.name.tag" }
 					}
+				},
+				{
+					"match": "[A-Z][a-zA-Z0-9_]*",
+					"name": "support.class.component.zvelte"
 				},
 				{
 					"match": "[a-z][\\w0-9:-]*",
