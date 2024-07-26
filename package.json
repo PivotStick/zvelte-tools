@@ -1,53 +1,68 @@
 {
-  "name": "zvelte",
-  "displayName": "Zvelte Language Features",
-  "publisher": "zvelte",
-  "icon": "icons/logo.png",
-  "description": "Language supports for Zvelte",
-  "version": "0.1.2",
-  "engines": {
-    "vscode": "^1.90.0"
-  },
-  "categories": [
-    "Programming Languages"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/PivotStick/zvelte-tools"
-  },
-  "contributes": {
-    "languages": [
-      {
-        "id": "zvelte",
-        "aliases": [
-          "Zvelte",
-          "zvelte"
-        ],
-        "extensions": [
-          ".zvelte"
-        ],
-        "icon": {
-          "dark": "./icons/logo.png",
-          "light": "./icons/logo.png"
-        },
-        "configuration": "./language-configuration.json"
-      }
+    "name": "zvelte",
+    "displayName": "Zvelte Language Features",
+    "publisher": "zvelte",
+    "icon": "icons/logo.png",
+    "description": "Language supports for Zvelte",
+    "version": "0.1.2",
+    "engines": {
+        "vscode": "^1.90.0"
+    },
+    "categories": [
+        "Programming Languages"
     ],
-    "grammars": [
-      {
-        "language": "zvelte",
-        "scopeName": "source.zvelte",
-        "path": "./syntaxes/zvelte.tmLanguage.json",
-        "injectTo": [
-          "./syntaxes/zvelte.tmLanguage.json"
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/PivotStick/zvelte-tools"
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w",
+        "postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+    },
+    "activationEvents": [
+        "onLanguage"
+    ],
+    "main": "./client/out/extension",
+    "devDependencies": {
+        "@types/node": "^20.5.7",
+        "typescript": "^5.2.2"
+    },
+    "contributes": {
+        "configuration": {},
+        "languages": [
+            {
+                "id": "zvelte",
+                "aliases": [
+                    "Zvelte",
+                    "zvelte"
+                ],
+                "extensions": [
+                    ".zvelte"
+                ],
+                "icon": {
+                    "dark": "./icons/logo.png",
+                    "light": "./icons/logo.png"
+                },
+                "configuration": "./language-configuration.json"
+            }
         ],
-        "embeddedLanguages": {
-          "source.css": "css",
-          "source.css.scss": "scss",
-          "source.js": "javascript",
-          "source.ts": "typescript"
-        }
-      }
-    ]
-  }
+        "grammars": [
+            {
+                "language": "zvelte",
+                "scopeName": "source.zvelte",
+                "path": "./syntaxes/zvelte.tmLanguage.json",
+                "injectTo": [
+                    "./syntaxes/zvelte.tmLanguage.json"
+                ],
+                "embeddedLanguages": {
+                    "source.css": "css",
+                    "source.css.scss": "scss",
+                    "source.js": "javascript",
+                    "source.ts": "typescript"
+                }
+            }
+        ]
+    }
 }
