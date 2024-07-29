@@ -15,7 +15,7 @@ function activate(context) {
         run: { module: serverModule, transport: node_1.TransportKind.ipc },
         debug: {
             module: serverModule,
-            transport: node_1.TransportKind.ipc,
+            transport: node_1.TransportKind.stdio,
             options: {
                 execArgv: ['--nolazy', '--inspect=6009']
             }
