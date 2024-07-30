@@ -18,7 +18,7 @@ import { walk } from "zimmerframe";
 const connection = createConnection(
 	ProposedFeatures.all,
 	process.stdin,
-	process.stdout
+	process.stdout,
 );
 
 // Create a simple text document manager.
@@ -33,6 +33,8 @@ connection.onInitialize((params) => {
 });
 
 documents.onDidChangeContent((change) => {
+	const inZone = change.document.uri.includes("/zone.app/");
+
 	/**
 	 * @type {Diagnostic[]}
 	 */
@@ -40,7 +42,10 @@ documents.onDidChangeContent((change) => {
 
 	try {
 		const source = change.document.getText();
-		const ast = parse(source);
+		const ast = parse(source, {
+			specialTag: inZone ? "zone" : undefined,
+		});
+
 		/**
 		 * @param {Pick<import("@pivotass/zvelte/types").ZvelteNode, "start" | "end">} node
 		 * @returns {import("vscode-languageserver-textdocument").Range}
@@ -83,7 +88,7 @@ documents.onDidChangeContent((change) => {
 					components.push(node);
 					next();
 				},
-			}
+			},
 		);
 
 		for (const node of ast.imports) {
