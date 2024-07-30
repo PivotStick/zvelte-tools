@@ -19,7 +19,7 @@ let client;
 module.exports.activate = function (context) {
 	// The server is implemented in node
 	const serverModule = context.asAbsolutePath(
-		path.join("server", "src", "server.js")
+		path.join("server", "src", "server.js"),
 	);
 
 	/**
@@ -45,7 +45,7 @@ module.exports.activate = function (context) {
 	 */
 	const clientOptions = {
 		// Register the server for all documents by default
-		documentSelector: [{ scheme: "file", language: "*" }],
+		documentSelector: [{ scheme: "file", language: "zvelte" }],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
@@ -54,10 +54,10 @@ module.exports.activate = function (context) {
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		"REPLACE_ME language-server-id",
-		"REPLACE_ME language server name",
+		"zvelte",
+		"Zvelte language server",
 		serverOptions,
-		clientOptions
+		clientOptions,
 	);
 
 	// Start the client. This will also launch the server
