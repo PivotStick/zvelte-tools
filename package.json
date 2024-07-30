@@ -19,25 +19,16 @@
 		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
 	},
 	"activationEvents": [
-		"onLanguage"
+		"onLanguage:zvelte"
 	],
-	"main": "./client/src/extension",
+	"main": "client/src/extension.js",
 	"type": "module",
 	"devDependencies": {
 		"@types/node": "^20.5.7",
 		"typescript": "^5.2.2"
 	},
 	"contributes": {
-		"configuration": {
-			"properties": {
-				"languageServerExample.maxNumberOfProblems": {
-					"scope": "resource",
-					"type": "number",
-					"default": 100,
-					"description": "Controls the maximum number of problems produced by the server."
-				}
-			}
-		},
+		"configuration": {},
 		"languages": [
 			{
 				"id": "zvelte",
@@ -69,6 +60,12 @@
 					"source.js": "javascript",
 					"source.ts": "typescript"
 				}
+			}
+		],
+		"snippets": [
+			{
+				"language": "zvelte",
+				"path": "./snippets/zvelte.json"
 			}
 		]
 	}
