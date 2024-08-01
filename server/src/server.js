@@ -5,6 +5,8 @@ import {
 	TextDocumentSyncKind,
 	Diagnostic,
 	DiagnosticSeverity,
+	DocumentHighlight,
+	DocumentHighlightKind,
 } from "vscode-languageserver/node.js";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -62,10 +64,29 @@ documents.onDidChangeContent((change) => {
 			};
 		};
 
+		ast.imports.forEach((n, i) => {
+			if (
+				ast.imports.find(
+					(_, _i) =>
+						_i !== i && _.specifier.name === n.specifier.name,
+				)
+			) {
+				diagnostics.push({
+					severity: DiagnosticSeverity.Error,
+					message: `Duplicate identifier "${n.specifier.name}"`,
+					range: nodeToRange(n.specifier),
+				});
+			}
+		});
+
 		/**
 		 *  @type {import("@pivotass/zvelte/types").Component[]}
 		 */
 		const components = [];
+		/**
+		 * @type {DocumentHighlight[]}
+		 */
+		const symbols = [];
 
 		walk(
 			/** @type {import("@pivotass/zvelte/types").ZvelteNode} */ (
@@ -74,16 +95,24 @@ documents.onDidChangeContent((change) => {
 			null,
 			{
 				Component(node, { next }) {
+					const range = nodeToRange(node);
+
 					if (
 						!ast.imports.find((i) => i.specifier.name === node.name)
 					) {
 						diagnostics.push({
 							message: `"${node.name}" is not defined, forgot an import tag?`,
 							severity: DiagnosticSeverity.Warning,
-							range: nodeToRange(node),
+							range,
 						});
 					}
+
 					components.push(node);
+					symbols.push({
+						kind: DocumentHighlightKind.Read,
+						range,
+					});
+
 					next();
 				},
 			},
@@ -98,6 +127,8 @@ documents.onDidChangeContent((change) => {
 				});
 			}
 		}
+
+		connection.onDocumentHighlight(() => symbols);
 	} catch (/** @type {any} */ error) {
 		const { start, end } = error.range;
 
