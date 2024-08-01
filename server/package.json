@@ -1,21 +1,21 @@
 {
-  "name": "zvelte",
-  "description": "zvelte",
-  "version": "1.0.0",
-  "author": "REPLACE_ME",
-  "license": "MIT",
-  "type": "module",
-  "engines": {
-    "node": "*"
-  },
-  "repository": {
-    "type": "git",
-    "url": "REPLACE_ME"
-  },
-  "dependencies": {
-    "@pivotass/zvelte": "file:../../zvelte",
-    "vscode-languageserver": "^8.1.0",
-    "vscode-languageserver-textdocument": "^1.0.8",
-    "zimmerframe": "^1.1.2"
-  }
+	"name": "zvelte",
+	"description": "zvelte",
+	"version": "1.0.0",
+	"author": "REPLACE_ME",
+	"license": "MIT",
+	"type": "module",
+	"engines": {
+		"node": "*"
+	},
+	"repository": {
+		"type": "git",
+		"url": "REPLACE_ME"
+	},
+	"dependencies": {
+		"@pivotass/zvelte": "^0.4.113",
+		"vscode-languageserver": "^8.1.0",
+		"vscode-languageserver-textdocument": "^1.0.8",
+		"zimmerframe": "^1.1.2"
+	}
 }
