@@ -1,6 +1,7 @@
 {
 	"name": "zvelte",
 	"displayName": "Zvelte Language Features",
+	"main": "dist/src/extension.js",
 	"publisher": "zvelte",
 	"icon": "icons/logo.png",
 	"description": "Language supports for Zvelte",
@@ -16,15 +17,18 @@
 		"url": "https://github.com/PivotStick/zvelte-tools"
 	},
 	"scripts": {
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd .."
+		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+		"watch": "node esbuild.js --watch",
+		"build": "node esbuild.js",
+		"vscode:prepublish": "npm run package",
+		"package": "node esbuild.js --production"
 	},
 	"activationEvents": [
 		"onLanguage:zvelte"
 	],
-	"main": "client/src/extension.js",
-	"type": "module",
 	"devDependencies": {
 		"@types/node": "^20.5.7",
+		"esbuild": "^0.23.0",
 		"typescript": "^5.2.2"
 	},
 	"contributes": {

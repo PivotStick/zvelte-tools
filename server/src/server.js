@@ -3,8 +3,6 @@ import {
 	TextDocuments,
 	ProposedFeatures,
 	TextDocumentSyncKind,
-	MarkupKind,
-	Hover,
 	Diagnostic,
 	DiagnosticSeverity,
 } from "vscode-languageserver/node.js";
@@ -18,7 +16,7 @@ import { walk } from "zimmerframe";
 const connection = createConnection(
 	ProposedFeatures.all,
 	process.stdin,
-	process.stdout,
+	process.stdout
 );
 
 // Create a simple text document manager.
@@ -88,7 +86,7 @@ documents.onDidChangeContent((change) => {
 					components.push(node);
 					next();
 				},
-			},
+			}
 		);
 
 		for (const node of ast.imports) {

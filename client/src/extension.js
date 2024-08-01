@@ -19,7 +19,7 @@ let client;
 module.exports.activate = function (context) {
 	// The server is implemented in node
 	const serverModule = context.asAbsolutePath(
-		path.join("server", "src", "server.js"),
+		path.join("server", "src", "server.js")
 	);
 
 	/**
@@ -57,7 +57,7 @@ module.exports.activate = function (context) {
 		"zvelte",
 		"Zvelte language server",
 		serverOptions,
-		clientOptions,
+		clientOptions
 	);
 
 	// Start the client. This will also launch the server

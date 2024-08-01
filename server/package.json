@@ -13,7 +13,7 @@
     "url": "REPLACE_ME"
   },
   "dependencies": {
-    "@pivotass/zvelte": "file:../../../zvelte",
+    "@pivotass/zvelte": "file:../../zvelte",
     "vscode-languageserver": "^8.1.0",
     "vscode-languageserver-textdocument": "^1.0.8",
     "zimmerframe": "^1.1.2"
