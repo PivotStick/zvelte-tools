@@ -33,6 +33,8 @@ connection.onInitialize((params) => {
 });
 
 documents.onDidChangeContent((change) => {
+	const inZone = change.document.uri.includes("/zone.app/");
+
 	/**
 	 * @type {Diagnostic[]}
 	 */
@@ -40,9 +42,12 @@ documents.onDidChangeContent((change) => {
 
 	try {
 		const source = change.document.getText();
-		const ast = parse(source);
+		const ast = parse(source, {
+			specialTag: inZone ? "zone" : undefined,
+		});
+
 		/**
-		 * @param {import("@pivotass/zvelte/types").ZvelteNode} node
+		 * @param {Pick<import("@pivotass/zvelte/types").ZvelteNode, "start" | "end">} node
 		 * @returns {import("vscode-languageserver-textdocument").Range}
 		 */
 		const nodeToRange = (node) => {
@@ -58,6 +63,11 @@ documents.onDidChangeContent((change) => {
 				},
 			};
 		};
+
+		/**
+		 *  @type {import("@pivotass/zvelte/types").Component[]}
+		 */
+		const components = [];
 
 		walk(
 			/** @type {import("@pivotass/zvelte/types").ZvelteNode} */ (
@@ -75,10 +85,21 @@ documents.onDidChangeContent((change) => {
 							range: nodeToRange(node),
 						});
 					}
+					components.push(node);
 					next();
 				},
 			},
 		);
+
+		for (const node of ast.imports) {
+			if (!components.find((c) => c.name === node.specifier.name)) {
+				diagnostics.push({
+					message: `Unused import`,
+					severity: DiagnosticSeverity.Hint,
+					range: nodeToRange(node),
+				});
+			}
+		}
 	} catch (/** @type {any} */ error) {
 		const { start, end } = error.range;
 
