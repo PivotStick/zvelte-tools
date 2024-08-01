@@ -4,7 +4,7 @@
 	"main": "client/src/extension.js",
 	"publisher": "zvelte",
 	"icon": "icons/logo.png",
-	"description": "Language supports for Zvelte lolol",
+	"description": "Language supports for Zvelte",
 	"version": "0.1.10",
 	"engines": {
 		"vscode": "^1.90.0"
