@@ -1,10 +1,10 @@
 {
 	"name": "zvelte",
 	"displayName": "Zvelte Language Features",
-	"main": "dist/src/extension.js",
+	"main": "client/src/extension.js",
 	"publisher": "zvelte",
 	"icon": "icons/logo.png",
-	"description": "Language supports for Zvelte",
+	"description": "Language supports for Zvelte lolol",
 	"version": "0.1.8",
 	"engines": {
 		"vscode": "^1.90.0"
@@ -24,15 +24,20 @@
 		"package": "node esbuild.js --production"
 	},
 	"activationEvents": [
-		"onLanguage:zvelte"
+		"onLanguage"
 	],
-	"devDependencies": {
-		"@types/node": "^20.5.7",
-		"esbuild": "^0.23.0",
-		"typescript": "^5.2.2"
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": "limited",
+			"restrictedConfigurations": [
+				"zvelte.language-server.runtime",
+				"zvelte.language-server.ls-path",
+				"zvelte.language-server.runtime-args"
+			],
+			"description": "The extension requires workspace trust because it executes code specified by the workspace. Loading the user's node_modules and loading svelte config files is disabled when untrusted"
+		}
 	},
 	"contributes": {
-		"configuration": {},
 		"languages": [
 			{
 				"id": "zvelte",
@@ -66,11 +71,22 @@
 				}
 			}
 		],
+		"commands": [
+			{
+				"command": "zvelte.restartLanguageServer",
+				"title": "Zvelte: Restart Language Server"
+			}
+		],
 		"snippets": [
 			{
 				"language": "zvelte",
 				"path": "./snippets/zvelte.json"
 			}
 		]
+	},
+	"devDependencies": {
+		"@types/node": "^20.5.7",
+		"esbuild": "^0.23.0",
+		"typescript": "^5.2.2"
 	}
 }
