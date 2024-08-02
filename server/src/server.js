@@ -7,11 +7,19 @@ import {
 	DiagnosticSeverity,
 	DocumentHighlight,
 	DocumentHighlightKind,
+	Hover,
+	MarkupKind,
+	Range,
+	Location,
+	Position,
+	CompletionItem,
 } from "vscode-languageserver/node.js";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { parse, indexesToRange } from "@pivotass/zvelte/parser";
 import { walk } from "zimmerframe";
+import { existsSync } from "fs";
+import { join } from "path";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -24,16 +32,63 @@ const connection = createConnection(
 // Create a simple text document manager.
 const documents = new TextDocuments(TextDocument);
 
-connection.onInitialize((params) => {
+connection.onInitialize(() => {
 	return {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
+			documentHighlightProvider: true,
+			documentFormattingProvider: true,
 		},
 	};
 });
 
+/**
+ * @param {Position} position
+ * @param {Range} range
+ */
+function isInRange(position, range) {
+	return (
+		position.line >= range.start.line &&
+		position.character >= range.start.character &&
+		position.line <= range.end.line &&
+		position.character <= range.end.character
+	);
+}
+
 documents.onDidChangeContent((change) => {
 	const inZone = change.document.uri.includes("/zone.app/");
+	const origin = inZone
+		? /^file:(.*\/zone\.app)/.exec(change.document.uri)?.[1] ?? ""
+		: "";
+
+	/**
+	 * @param {import("@pivotass/zvelte/types").ImportTag} node
+	 */
+	function resolveCMPImport(node) {
+		if (!inZone) return;
+		const regex = /^CMP\/App\/([^/]+)\/([^/]+)\/(.+)$/;
+		const match = regex.exec(node.source.value);
+
+		try {
+			if (!match) throw new Error("Namespace malformed.");
+			const [, app, portal, path] = match;
+			const fullpath = join(
+				origin,
+				"apps",
+				app,
+				portal,
+				"components",
+				path,
+			);
+
+			if (!existsSync(fullpath + ".php")) {
+				return `Component \`${node.specifier.name}\` not found.`;
+			}
+		} catch (error) {
+			if (typeof error === "string") return error;
+			return "Something went wrong while analyzing.";
+		}
+	}
 
 	/**
 	 * @type {Diagnostic[]}
@@ -45,6 +100,11 @@ documents.onDidChangeContent((change) => {
 		const ast = parse(source, {
 			specialTag: inZone ? "zone" : undefined,
 		});
+
+		/**
+		 * @type {Record<string, DocumentHighlight[]>}
+		 */
+		const highlights = {};
 
 		/**
 		 * @param {Pick<import("@pivotass/zvelte/types").ZvelteNode, "start" | "end">} node
@@ -65,6 +125,17 @@ documents.onDidChangeContent((change) => {
 		};
 
 		ast.imports.forEach((n, i) => {
+			const specifierRange = nodeToRange(n.specifier);
+			const unresolved = resolveCMPImport(n);
+
+			if (unresolved) {
+				diagnostics.push({
+					severity: DiagnosticSeverity.Error,
+					message: unresolved,
+					range: nodeToRange(n.source),
+				});
+			}
+
 			if (
 				ast.imports.find(
 					(_, _i) =>
@@ -74,19 +145,22 @@ documents.onDidChangeContent((change) => {
 				diagnostics.push({
 					severity: DiagnosticSeverity.Error,
 					message: `Duplicate identifier "${n.specifier.name}"`,
-					range: nodeToRange(n.specifier),
+					range: specifierRange,
 				});
 			}
+
+			(highlights[n.specifier.name] ??= []).push({
+				range: specifierRange,
+			});
 		});
 
 		/**
-		 *  @type {import("@pivotass/zvelte/types").Component[]}
+		 *  @type {{
+		 *      node: import("@pivotass/zvelte/types").Component;
+		 *      range: import("vscode-languageserver").Range;
+		 *  }[]}
 		 */
 		const components = [];
-		/**
-		 * @type {DocumentHighlight[]}
-		 */
-		const symbols = [];
 
 		walk(
 			/** @type {import("@pivotass/zvelte/types").ZvelteNode} */ (
@@ -107,10 +181,25 @@ documents.onDidChangeContent((change) => {
 						});
 					}
 
-					components.push(node);
-					symbols.push({
-						kind: DocumentHighlightKind.Read,
+					components.push({
+						node,
 						range,
+					});
+
+					(highlights[node.name] ??= []).push({
+						range: {
+							start: {
+								line: range.start.line,
+								character: range.start.character + 1,
+							},
+							end: {
+								line: range.start.line,
+								character:
+									range.start.character +
+									1 +
+									node.name.length,
+							},
+						},
 					});
 
 					next();
@@ -119,7 +208,7 @@ documents.onDidChangeContent((change) => {
 		);
 
 		for (const node of ast.imports) {
-			if (!components.find((c) => c.name === node.specifier.name)) {
+			if (!components.find((c) => c.node.name === node.specifier.name)) {
 				diagnostics.push({
 					message: `Unused import`,
 					severity: DiagnosticSeverity.Hint,
@@ -128,7 +217,17 @@ documents.onDidChangeContent((change) => {
 			}
 		}
 
-		connection.onDocumentHighlight(() => symbols);
+		connection.onDocumentHighlight((params) => {
+			for (const [_key, ranges] of Object.entries(highlights)) {
+				for (const range of ranges) {
+					if (isInRange(params.position, range.range)) {
+						return ranges;
+					}
+				}
+			}
+
+			return null;
+		});
 	} catch (/** @type {any} */ error) {
 		const { start, end } = error.range;
 
