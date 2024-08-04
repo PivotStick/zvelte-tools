@@ -6,13 +6,8 @@ import {
 	Diagnostic,
 	DiagnosticSeverity,
 	DocumentHighlight,
-	DocumentHighlightKind,
-	Hover,
-	MarkupKind,
 	Range,
-	Location,
 	Position,
-	CompletionItem,
 } from "vscode-languageserver/node.js";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -20,6 +15,7 @@ import { parse, indexesToRange } from "@pivotass/zvelte/parser";
 import { walk } from "zimmerframe";
 import { existsSync } from "fs";
 import { join } from "path";
+import { format } from "./formatter.js";
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -37,7 +33,7 @@ connection.onInitialize(() => {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
 			documentHighlightProvider: true,
-			documentFormattingProvider: true,
+			documentFormattingProvider: false,
 		},
 	};
 });
@@ -54,6 +50,27 @@ function isInRange(position, range) {
 		position.character <= range.end.character
 	);
 }
+
+connection.onDocumentFormatting((params) => {
+	const doc = documents.get(params.textDocument.uri);
+	if (!doc) return null;
+
+	const source = doc.getText();
+
+	try {
+		return [
+			{
+				newText: format(source),
+				range: {
+					start: doc.positionAt(0),
+					end: doc.positionAt(source.length),
+				},
+			},
+		];
+	} catch (error) {
+		return null;
+	}
+});
 
 documents.onDidChangeContent((change) => {
 	const inZone = change.document.uri.includes("/zone.app/");

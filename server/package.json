@@ -13,7 +13,8 @@
 		"url": "REPLACE_ME"
 	},
 	"dependencies": {
-		"@pivotass/zvelte": "^0.4.113",
+		"@pivotass/zvelte": "^0.4.116",
+		"postcss-scss": "^4.0.9",
 		"vscode-languageserver": "^8.1.0",
 		"vscode-languageserver-textdocument": "^1.0.8",
 		"zimmerframe": "^1.1.2"
