@@ -13,7 +13,9 @@
 		"url": "REPLACE_ME"
 	},
 	"dependencies": {
-		"@pivotass/zvelte": "^0.4.116",
+		"@pivotass/zvelte": "^0.4.118",
+		"acorn": "^8.12.1",
+		"esrap": "^1.2.2",
 		"postcss-scss": "^4.0.9",
 		"vscode-languageserver": "^8.1.0",
 		"vscode-languageserver-textdocument": "^1.0.8",

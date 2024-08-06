@@ -8,6 +8,7 @@ import {
 	DocumentHighlight,
 	Range,
 	Position,
+	Location,
 } from "vscode-languageserver/node.js";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -33,7 +34,8 @@ connection.onInitialize(() => {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
 			documentHighlightProvider: true,
-			documentFormattingProvider: false,
+			documentFormattingProvider: true,
+			definitionProvider: true,
 		},
 	};
 });
@@ -55,12 +57,13 @@ connection.onDocumentFormatting((params) => {
 	const doc = documents.get(params.textDocument.uri);
 	if (!doc) return null;
 
+	const { parserOptions } = getUriMeta(params.textDocument.uri);
 	const source = doc.getText();
 
 	try {
 		return [
 			{
-				newText: format(source),
+				newText: format(source, parserOptions),
 				range: {
 					start: doc.positionAt(0),
 					end: doc.positionAt(source.length),
@@ -72,22 +75,37 @@ connection.onDocumentFormatting((params) => {
 	}
 });
 
+/**
+ * @param {string} uri
+ */
+function getUriMeta(uri) {
+	const inZone = uri.includes("/zone.app/");
+	const origin = inZone ? /^file:(.*\/zone\.app)/.exec(uri)?.[1] ?? "" : "";
+
+	const parserOptions = {
+		specialTag: inZone ? "zone" : undefined,
+	};
+
+	return {
+		inZone,
+		origin,
+		parserOptions,
+	};
+}
+
 documents.onDidChangeContent((change) => {
-	const inZone = change.document.uri.includes("/zone.app/");
-	const origin = inZone
-		? /^file:(.*\/zone\.app)/.exec(change.document.uri)?.[1] ?? ""
-		: "";
+	const { inZone, origin, parserOptions } = getUriMeta(change.document.uri);
 
 	/**
 	 * @param {import("@pivotass/zvelte/types").ImportTag} node
 	 */
-	function resolveCMPImport(node) {
-		if (!inZone) return;
-		const regex = /^CMP\/App\/([^/]+)\/([^/]+)\/(.+)$/;
-		const match = regex.exec(node.source.value);
+	function importSourceToAbsolute(node) {
+		if (inZone) {
+			const regex = /^CMP\/App\/([^/]+)\/([^/]+)\/(.+)$/;
+			const match = regex.exec(node.source.value);
 
-		try {
 			if (!match) throw new Error("Namespace malformed.");
+
 			const [, app, portal, path] = match;
 			const fullpath = join(
 				origin,
@@ -97,6 +115,26 @@ documents.onDidChangeContent((change) => {
 				"components",
 				path,
 			);
+
+			return fullpath;
+		}
+
+		return node.source.value.startsWith("/")
+			? node.source.value
+			: join(
+					change.document.uri.slice("file:".length),
+					node.source.value,
+				);
+	}
+
+	/**
+	 * @param {import("@pivotass/zvelte/types").ImportTag} node
+	 */
+	function resolveCMPImport(node) {
+		if (!inZone) return;
+
+		try {
+			const fullpath = importSourceToAbsolute(node);
 
 			if (!existsSync(fullpath + ".php")) {
 				return `Component \`${node.specifier.name}\` not found.`;
@@ -111,12 +149,14 @@ documents.onDidChangeContent((change) => {
 	 * @type {Diagnostic[]}
 	 */
 	const diagnostics = [];
+	/**
+	 * @type {Location[]}
+	 */
+	const definitions = [];
 
 	try {
 		const source = change.document.getText();
-		const ast = parse(source, {
-			specialTag: inZone ? "zone" : undefined,
-		});
+		const ast = parse(source, parserOptions);
 
 		/**
 		 * @type {Record<string, DocumentHighlight[]>}
@@ -150,6 +190,14 @@ documents.onDidChangeContent((change) => {
 					severity: DiagnosticSeverity.Error,
 					message: unresolved,
 					range: nodeToRange(n.source),
+				});
+			} else {
+				let path = importSourceToAbsolute(n);
+				if (inZone) path += ".zvelte";
+
+				definitions.push({
+					uri: "file:" + path,
+					range: specifierRange,
 				});
 			}
 
@@ -187,14 +235,35 @@ documents.onDidChangeContent((change) => {
 			{
 				Component(node, { next }) {
 					const range = nodeToRange(node);
+					const importPair = ast.imports.find(
+						(i) => i.specifier.name === node.name,
+					);
 
-					if (
-						!ast.imports.find((i) => i.specifier.name === node.name)
-					) {
+					const nameRange = {
+						start: {
+							line: range.start.line,
+							character: range.start.character + 1,
+						},
+						end: {
+							line: range.start.line,
+							character:
+								range.start.character + 1 + node.name.length,
+						},
+					};
+
+					if (!importPair) {
 						diagnostics.push({
 							message: `"${node.name}" is not defined, forgot an import tag?`,
 							severity: DiagnosticSeverity.Warning,
 							range,
+						});
+					} else {
+						let path = importSourceToAbsolute(importPair);
+						if (inZone) path += ".zvelte";
+
+						definitions.push({
+							uri: "file:" + path,
+							range: nameRange,
 						});
 					}
 
@@ -204,19 +273,7 @@ documents.onDidChangeContent((change) => {
 					});
 
 					(highlights[node.name] ??= []).push({
-						range: {
-							start: {
-								line: range.start.line,
-								character: range.start.character + 1,
-							},
-							end: {
-								line: range.start.line,
-								character:
-									range.start.character +
-									1 +
-									node.name.length,
-							},
-						},
+						range: nameRange,
 					});
 
 					next();
@@ -240,6 +297,22 @@ documents.onDidChangeContent((change) => {
 					if (isInRange(params.position, range.range)) {
 						return ranges;
 					}
+				}
+			}
+
+			return null;
+		});
+
+		connection.onDefinition((params) => {
+			for (const def of definitions) {
+				if (isInRange(params.position, def.range)) {
+					return /** @type {import("vscode-languageserver").Location} */ ({
+						uri: def.uri,
+						range: {
+							start: { line: 0, character: 0 },
+							end: { line: 0, character: 0 },
+						},
+					});
 				}
 			}
 

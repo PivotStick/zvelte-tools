@@ -1,3 +1,6 @@
+import * as esrap from "esrap";
+import * as acorn from "acorn";
+
 import { walk } from "zimmerframe";
 import { parse } from "@pivotass/zvelte/parser";
 import postcss from "postcss-scss";
@@ -14,11 +17,13 @@ import { VoidElements } from "./constants.js";
  *  indent(): void;
  *  dedent(): void;
  *  nl(count?: number): void;
+ *  hasNl(from: number, to: number, count?: number): boolean;
  * }} State
  *
  * @param {string} source
+ * @param {Parameters<parse>[1]=} options
  */
-export function format(source) {
+export function format(source, options) {
 	let out = "";
 	let indentation = 0;
 
@@ -43,6 +48,12 @@ export function format(source) {
 		nl(count = 1) {
 			state.add("\n".repeat(count));
 		},
+		hasNl(from, to, count = 1) {
+			return source
+				.slice(from, to)
+				.replace(/[^\n]+/g, "")
+				.includes("\n".repeat(count));
+		},
 		indent() {
 			indentation++;
 		},
@@ -51,7 +62,7 @@ export function format(source) {
 		},
 	};
 
-	walk(parse(source), state, visitors);
+	walk(parse(source, options), state, visitors);
 
 	return out;
 }
@@ -146,7 +157,11 @@ const visitors = {
 
 		state.add(">");
 
-		visit(node.fragment);
+		if (node.name === "script" && node.fragment.nodes[0].type === "Text") {
+			renderJS(node.fragment.nodes[0], { state });
+		} else {
+			visit(node.fragment);
+		}
 
 		state.add(`</${node.name}>`);
 	},
@@ -175,22 +190,39 @@ const visitors = {
 			const quotted =
 				node.value.length > 1 || node.value[0].type !== "ExpressionTag";
 
+			let quote = node.doubleQuotes ?? true ? '"' : "'";
+
+			// prefer '"' if possible
+			if (
+				quote === "'" &&
+				node.value.length === 1 &&
+				node.value[0].type === "Text" &&
+				!node.value[0].data.includes('"')
+			) {
+				quote = '"';
+			}
+
 			state.add("=");
 
 			if (quotted) {
-				state.add('"');
+				state.add(quote);
 			}
 
 			node.value.forEach((node) => visit(node));
 
 			if (quotted) {
-				state.add('"');
+				state.add(quote);
 			}
 		}
 	},
 
 	ClassDirective(node, { state, visit }) {
 		state.add(`class:${node.name}`);
+
+		for (const modifier of node.modifiers) {
+			state.add(`|${modifier}`);
+		}
+
 		if (
 			node.expression.type !== "Identifier" ||
 			node.expression.name !== node.name
@@ -203,6 +235,11 @@ const visitors = {
 
 	OnDirective(node, { state, visit }) {
 		state.add(`on:${node.name}`);
+
+		for (const modifier of node.modifiers) {
+			state.add(`|${modifier}`);
+		}
+
 		if (node.expression) {
 			state.add("={{ ");
 			visit(node.expression);
@@ -221,6 +258,10 @@ const visitors = {
 
 		state.add(node.name);
 
+		for (const modifier of node.modifiers) {
+			state.add(`|${modifier}`);
+		}
+
 		if (node.expression) {
 			state.add("={{ ");
 			visit(node.expression);
@@ -231,6 +272,10 @@ const visitors = {
 	UseDirective(node, { state, visit }) {
 		state.add(`use:${node.name}`);
 
+		for (const modifier of node.modifiers) {
+			state.add(`|${modifier}`);
+		}
+
 		if (node.expression) {
 			state.add("={{ ");
 			visit(node.expression);
@@ -240,6 +285,11 @@ const visitors = {
 
 	BindDirective(node, { state, visit }) {
 		state.add(`bind:${node.name}`);
+
+		for (const modifier of node.modifiers) {
+			state.add(`|${modifier}`);
+		}
+
 		if (
 			node.expression.type !== "Identifier" ||
 			node.expression.name !== node.name
@@ -273,10 +323,7 @@ const visitors = {
 	ObjectExpression(node, { state, visit }) {
 		if (!node.properties.length) return state.add("{}");
 
-		const indent = state.source
-			.slice(node.start + 1, node.properties[0].start)
-			.includes("\n");
-
+		const indent = state.hasNl(node.start + 1, node.properties[0].start);
 		const spacing = indent ? "\n" : " ";
 
 		state.add(`{${spacing}`);
@@ -284,10 +331,15 @@ const visitors = {
 		if (indent) state.indent();
 
 		for (const prop of node.properties) {
+			const last = prop === node.properties[node.properties.length - 1];
+
 			visit(prop);
 
-			if (prop !== node.properties[node.properties.length - 1]) {
-				state.add(`,${spacing}`);
+			if (indent || !last) {
+				state.add(",");
+				if (!last) {
+					state.add(spacing);
+				}
 			}
 		}
 
@@ -328,10 +380,7 @@ const visitors = {
 	ArrayExpression(node, { state, visit }) {
 		if (!node.elements.length) return state.add("[]");
 
-		const indent = state.source
-			.slice(node.start + 1, node.elements[0].start)
-			.includes("\n");
-
+		const indent = state.hasNl(node.start + 1, node.elements[0].start);
 		const spacing = indent ? "\n" : " ";
 
 		state.add("[");
@@ -342,11 +391,16 @@ const visitors = {
 		}
 
 		for (const item of node.elements) {
+			const last = item === node.elements[node.elements.length - 1];
+
 			visit(item);
 
-			if (item !== node.elements[node.elements.length - 1]) {
+			if (indent || !last) {
 				state.add(",");
-				state.add(spacing);
+
+				if (!last) {
+					state.add(spacing);
+				}
 			}
 		}
 
@@ -377,28 +431,87 @@ const visitors = {
 	},
 
 	BinaryExpression(node, { path, state, visit }) {
-		const parent = path[path.length - 1];
+		let groupLeft = false;
+		let groupRight = false;
 
-		let group = false;
+		if (node.operator === "*" || node.operator === "/") {
+			groupLeft =
+				node.left.type === "BinaryExpression" &&
+				(node.left.operator === "+" || node.left.operator === "-");
 
-		if (
-			parent.type === "BinaryExpression" ||
-			parent.type === "LogicalExpression"
-		) {
-			group = precedences[parent.operator] > precedences[node.operator];
+			groupRight =
+				node.right.type === "BinaryExpression" &&
+				(node.right.operator === "+" || node.right.operator === "-");
 		}
 
-		if (group) state.add("(");
-
+		if (groupLeft) state.add("(");
 		visit(node.left);
-		state.add(` ${node.operator} `);
-		visit(node.right);
+		if (groupLeft) state.add(")");
 
-		if (group) state.add(")");
+		state.add(` ${node.operator} `);
+
+		if (groupRight) state.add("(");
+		visit(node.right);
+		if (groupRight) state.add(")");
 	},
 
-	CallExpression: callExpressionVisitor,
-	FilterExpression: callExpressionVisitor,
+	CallExpression(node, { state, visit }) {
+		group({ state, visit }, node.callee, [
+			"BinaryExpression",
+			"LogicalExpression",
+			"IsExpression",
+			"InExpression",
+			"RangeExpression",
+			"ConditionalExpression",
+			"ArrowFunctionExpression",
+			"AssignmentExpression",
+			"UpdateExpression",
+		]);
+
+		if (node.optional) {
+			state.add("?.");
+		}
+
+		state.add("(");
+		for (let i = 0; i < node.arguments.length; i++) {
+			const arg = node.arguments[i];
+			visit(arg);
+
+			if (i !== node.arguments.length - 1) {
+				state.add(", ");
+			}
+		}
+		state.add(")");
+	},
+
+	FilterExpression(node, { state, visit }) {
+		const args = node.arguments.slice();
+
+		if (node.withPipe) {
+			const first = args.splice(0, 1)[0];
+			visit(first);
+			state.add("|");
+		}
+
+		visit(node.name);
+
+		if (node.optional) {
+			state.add("?.");
+		}
+
+		if (args.length || node.optional || !node.withPipe) {
+			state.add("(");
+			for (let i = 0; i < args.length; i++) {
+				const arg = args[i];
+				visit(arg);
+
+				if (i !== args.length - 1) {
+					state.add(", ");
+				}
+			}
+			state.add(")");
+		}
+	},
 
 	Identifier(node, { state }) {
 		state.add(node.name);
@@ -416,7 +529,7 @@ const visitors = {
 		visit(node.left);
 		state.add(" is ");
 		if (node.not) {
-			state.add(" not ");
+			state.add("not ");
 		}
 		visit(node.right);
 	},
@@ -424,7 +537,7 @@ const visitors = {
 	InExpression(node, { state, visit }) {
 		visit(node.left);
 		if (node.not) {
-			state.add(" not ");
+			state.add(" not");
 		}
 		state.add(" in ");
 		visit(node.right);
@@ -450,9 +563,28 @@ const visitors = {
 	},
 
 	LogicalExpression(node, { state, visit }) {
+		let groupLeft = false;
+		let groupRight = false;
+
+		if (node.operator === "and") {
+			groupLeft =
+				node.left.type === "LogicalExpression" &&
+				node.left.operator === "or";
+
+			groupRight =
+				node.right.type === "LogicalExpression" &&
+				node.right.operator === "or";
+		}
+
+		if (groupLeft) state.add("(");
 		visit(node.left);
+		if (groupLeft) state.add(")");
+
 		state.add(` ${node.operator} `);
+
+		if (groupRight) state.add("(");
 		visit(node.right);
+		if (groupRight) state.add(")");
 	},
 
 	UnaryExpression(node, { state, visit }) {
@@ -460,7 +592,15 @@ const visitors = {
 		if (node.operator === "not") {
 			state.add(" ");
 		}
-		visit(node.argument);
+
+		group({ state, visit }, node.argument, [
+			"AssignmentExpression",
+			"ConditionalExpression",
+			"InExpression",
+			"IsExpression",
+			"LogicalExpression",
+			"BinaryExpression",
+		]);
 	},
 
 	RenderTag(node, { state, visit }) {
@@ -476,17 +616,42 @@ const visitors = {
 	},
 
 	ConditionalExpression(node, { state, visit }) {
+		const indent = state.hasNl(node.test.end, node.consequent.start);
+		const spacing = indent ? `\n` : " ";
+
 		visit(node.test);
-		state.add(" ? ");
+
+		if (indent) {
+			state.indent();
+		}
+
+		state.add(spacing);
+		state.add("? ");
+
 		visit(node.consequent);
-		state.add(" : ");
+
+		state.add(spacing);
+		state.add(": ");
 		visit(node.alternate);
+
+		if (indent) {
+			state.dedent();
+		}
 	},
 
 	ExpressionTag(node, { state, visit }) {
-		state.add("{{ ");
+		const indent = state.hasNl(node.start + 2, node.expression.start);
+		const spacing = indent ? "\n" : " ";
+
+		state.add("{{");
+		state.add(spacing);
+		if (indent) state.indent();
+
 		visit(node.expression);
-		state.add(" }}");
+
+		if (indent) state.dedent();
+		state.add(spacing);
+		state.add("}}");
 	},
 
 	ForBlock(node, { state, visit }) {
@@ -502,7 +667,7 @@ const visitors = {
 		visit(node.expression);
 
 		if (node.key) {
-			state.add("#(");
+			state.add(" #(");
 			visit(node.key);
 			state.add(")");
 		}
@@ -668,6 +833,20 @@ const visitors = {
 };
 
 /**
+ * @template {import("@pivotass/zvelte/types").ZvelteNode} T
+ *
+ * @param {Pick<FormatContext, "state" | "visit">} context
+ * @param {T} node
+ * @param {T["type"][]} types
+ */
+function group({ state, visit }, node, types) {
+	const test = types.includes(node.type);
+	if (test) state.add("(");
+	visit(node);
+	if (test) state.add(")");
+}
+
+/**
  * @param {import("@pivotass/zvelte/types").ElementLike} node
  * @param {FormatContext} context
  */
@@ -738,6 +917,13 @@ function cleanNodes(nodes, { trim = false } = {}) {
 			if (data) {
 				if (hasPadding(/\s+$/, n.data, 1)) endPadding += "\n";
 				if (!last && hasPadding(/\s+$/, n.data, 2)) endPadding += "\n";
+				if (!last && !endPadding && /\s+$/.test(n.data)) {
+					endPadding += " ";
+				}
+			}
+
+			if (!first && !startPadding && /^\s+/.test(n.data)) {
+				startPadding += " ";
 			}
 
 			return {
@@ -795,18 +981,43 @@ function trimNodes(nodes) {
  * @param {Pick<FormatContext, "state" | "visit">} context
  */
 function renderElementAttributes(node, { state, visit }) {
+	const attrs = node.attributes.slice();
+
 	let wrap = false;
-
-	if (node.attributes.length) {
+	if (attrs.length) {
 		const from = node.start + node.name.length + 1;
-		const sliced = state.source.slice(from, node.attributes[0].start);
+		wrap = state.hasNl(from, attrs[0].start);
+	}
 
-		wrap = sliced.includes("\n");
+	if (node.type === "ZvelteComponent") {
+		attrs.unshift({
+			type: "Attribute",
+			start: -1,
+			end: -1,
+			name: "this",
+			doubleQuotes: null,
+			value: [
+				{
+					type: "ExpressionTag",
+					expression: node.expression,
+					start: -1,
+					end: -1,
+				},
+			],
+		});
 	}
 
 	if (wrap) state.indent();
-	for (const attr of node.attributes) {
-		state.add(wrap ? "\n" : " ");
+
+	for (let i = 0; i < attrs.length; i++) {
+		const attr = attrs[i];
+		let padding = 1;
+
+		if (attrs[i - 1] && state.hasNl(attrs[i - 1].end, attr.start, 2)) {
+			padding++;
+		}
+
+		state.add(wrap ? "\n".repeat(padding) : " ");
 		visit(attr);
 	}
 	if (wrap) {
@@ -820,49 +1031,19 @@ function renderElementAttributes(node, { state, visit }) {
 }
 
 /**
- * @param {import("@pivotass/zvelte/types").CallExpression | import("@pivotass/zvelte/types").FilterExpression} node
- * @param {FormatContext} context
+ * @param {import("@pivotass/zvelte/types").Text} node
+ * @param {Pick<FormatContext, "state">} context
  */
-function callExpressionVisitor(node, { state, visit }) {
-	visit(node.type === "CallExpression" ? node.callee : node.name);
+function renderJS(node, { state }) {
+	const program = acorn.parse(node.data, { ecmaVersion: 2024 });
+	// @ts-ignore
+	const js = esrap.print(program);
 
-	if (node.optional) {
-		state.add("?.");
+	state.nl();
+	state.indent();
+	for (const line of js.code.split("\n")) {
+		state.add(line);
+		state.nl();
 	}
-
-	state.add("(");
-	for (let i = 0; i < node.arguments.length; i++) {
-		const arg = node.arguments[i];
-		visit(arg);
-
-		if (i !== node.arguments.length - 1) {
-			state.add(", ");
-		}
-	}
-	state.add(")");
+	state.dedent();
 }
-
-/**
- * @type {Record<import("@pivotass/zvelte/types").BinaryExpression["operator"] | import("@pivotass/zvelte/types").LogicalExpression["operator"], number>}
- */
-const precedences = {
-	and: 4,
-	or: 4,
-	"||": 4,
-	"??": 4,
-
-	"*": 3,
-	"/": 3,
-
-	"+": 2,
-	"-": 2,
-
-	"<": 1,
-	">": 1,
-	">=": 1,
-	"<=": 1,
-	"==": 1,
-	"!=": 1,
-
-	"~": 0,
-};
