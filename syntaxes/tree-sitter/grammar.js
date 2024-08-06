@@ -323,7 +323,7 @@ module.exports = grammar({
 
 		filter_expression: ($) =>
 			prec.left(
-				5,
+				11,
 				seq(
 					$._expression,
 					"|",
@@ -346,7 +346,7 @@ module.exports = grammar({
 		parenthezied_expression: ($) => seq("(", $._expression, ")"),
 
 		assignment_expression: ($) =>
-			prec.left(
+			prec.right(
 				seq(
 					choice($.identifier, $.member_expression),
 					choice("=", "+=", "-=", "/=", "*=", "~="),
@@ -358,9 +358,12 @@ module.exports = grammar({
 			choice($.identifier, $.numeric_literal, $.string_literal),
 
 		call_expression: ($) =>
-			seq(
-				field("callee", $._expression),
-				field("arguments", $.arguments),
+			prec(
+				11,
+				seq(
+					field("callee", $._expression),
+					field("arguments", $.arguments),
+				),
 			),
 
 		identifier: () => /[a-zA-Z_\$][\w]*/,

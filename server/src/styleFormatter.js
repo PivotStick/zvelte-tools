@@ -79,7 +79,7 @@ function renderNodes(nodes, { state, visit }) {
 		visit(child);
 		state.nl();
 
-		if (next && next.type !== child.type) {
+		if (next && (next.type === "rule" || next.type !== child.type)) {
 			state.nl();
 		}
 	}

@@ -194,10 +194,16 @@ documents.onDidChangeContent((change) => {
 			} else {
 				let path = importSourceToAbsolute(n);
 				if (inZone) path += ".zvelte";
+				const uri = "file:" + path;
 
 				definitions.push({
-					uri: "file:" + path,
+					uri,
 					range: specifierRange,
+				});
+
+				definitions.push({
+					uri,
+					range: nodeToRange(n.source),
 				});
 			}
 
