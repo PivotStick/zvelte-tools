@@ -983,28 +983,14 @@ function trimNodes(nodes) {
 function renderElementAttributes(node, { state, visit }) {
 	const attrs = node.attributes.slice();
 
+	if (node.type === "ZvelteComponent") {
+		attrs.splice(node.metadata.this.index, 0, node.metadata.this.node);
+	}
+
 	let wrap = false;
 	if (attrs.length) {
 		const from = node.start + node.name.length + 1;
 		wrap = state.hasNl(from, attrs[0].start);
-	}
-
-	if (node.type === "ZvelteComponent") {
-		attrs.unshift({
-			type: "Attribute",
-			start: -1,
-			end: -1,
-			name: "this",
-			doubleQuotes: null,
-			value: [
-				{
-					type: "ExpressionTag",
-					expression: node.expression,
-					start: -1,
-					end: -1,
-				},
-			],
-		});
 	}
 
 	if (wrap) state.indent();

@@ -17,7 +17,7 @@
 		"url": "https://github.com/PivotStick/zvelte-tools"
 	},
 	"scripts": {
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+		"postinstall": "cd client && npm install && cd ../server && npm install && cd ../syntaxes/tree-sitter && npm install && cd ../..",
 		"watch": "node esbuild.js --watch",
 		"build": "node esbuild.js",
 		"vscode:prepublish": "npm run package",
