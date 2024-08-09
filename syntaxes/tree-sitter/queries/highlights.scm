@@ -1,3 +1,5 @@
+(text) @none @spell
+
 [
     (identifier)
     (attribute_name)
@@ -67,6 +69,8 @@
 
     "key"
     "endkey"
+
+    "set"
 ] @keyword.conditional
 
 [
@@ -102,8 +106,10 @@
 [
   "-"
   "-="
+  "--"
   "+"
   "+="
+  "++"
   "~"
   "~="
   "/="

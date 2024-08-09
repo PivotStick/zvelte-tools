@@ -198,6 +198,7 @@ module.exports = grammar({
 			choice(
 				$.member_expression,
 				$.binary_expression,
+				$.update_expression,
 				$.unary_expression,
 				$.object,
 				$.array,
@@ -212,6 +213,14 @@ module.exports = grammar({
 				$.identifier,
 				$.parenthezied_expression,
 				$.assignment_expression,
+			),
+
+		update_expression: ($) =>
+			prec.right(
+				choice(
+					seq(choice("--", "++"), $._expression),
+					seq($._expression, choice("--", "++")),
+				),
 			),
 
 		unary_expression: ($) =>

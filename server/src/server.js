@@ -71,6 +71,7 @@ connection.onDocumentFormatting((params) => {
 			},
 		];
 	} catch (error) {
+		console.error(error);
 		return null;
 	}
 });
@@ -101,20 +102,32 @@ documents.onDidChangeContent((change) => {
 	 */
 	function importSourceToAbsolute(node) {
 		if (inZone) {
-			const regex = /^CMP\/App\/([^/]+)\/([^/]+)\/(.+)$/;
+			if (node.source.value.startsWith("CMP/App")) {
+				const regex = /^CMP\/App\/([^/]+)\/([^/]+)\/(.+)$/;
+				const match = regex.exec(node.source.value);
+
+				if (!match) throw new Error("Namespace malformed.");
+
+				const [, app, portal, path] = match;
+				const fullpath = join(
+					origin,
+					"apps",
+					app,
+					portal,
+					"components",
+					path,
+				);
+
+				return fullpath;
+			}
+
+			const regex = /^CMP\/(.+)$/;
 			const match = regex.exec(node.source.value);
 
 			if (!match) throw new Error("Namespace malformed.");
 
-			const [, app, portal, path] = match;
-			const fullpath = join(
-				origin,
-				"apps",
-				app,
-				portal,
-				"components",
-				path,
-			);
+			const [, path] = match;
+			const fullpath = join(origin, "components", path);
 
 			return fullpath;
 		}
@@ -260,7 +273,7 @@ documents.onDidChangeContent((change) => {
 					if (!importPair) {
 						diagnostics.push({
 							message: `"${node.name}" is not defined, forgot an import tag?`,
-							severity: DiagnosticSeverity.Warning,
+							severity: DiagnosticSeverity.Error,
 							range,
 						});
 					} else {
