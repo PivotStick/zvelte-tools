@@ -489,7 +489,17 @@ const visitors = {
 
 		if (node.withPipe) {
 			const first = args.splice(0, 1)[0];
-			visit(first);
+			group({ state, visit }, first, [
+				"LogicalExpression",
+				"BinaryExpression",
+				"IsExpression",
+				"InExpression",
+				"UnaryExpression",
+				"ConditionalExpression",
+				"ArrowFunctionExpression",
+				"AssignmentExpression",
+				"UpdateExpression",
+			]);
 			state.add("|");
 		}
 
