@@ -1031,6 +1031,8 @@ function renderElementAttributes(node, { state, visit }) {
  * @param {Pick<FormatContext, "state">} context
  */
 function renderJS(node, { state }) {
+	if (!node.data.trim()) return;
+
 	const program = acorn.parse(node.data, { ecmaVersion: 2024 });
 	// @ts-ignore
 	const js = esrap.print(program);
