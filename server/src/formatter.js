@@ -442,6 +442,9 @@ const visitors = {
 			groupRight =
 				node.right.type === "BinaryExpression" &&
 				(node.right.operator === "+" || node.right.operator === "-");
+		} else if (node.operator === "~") {
+			groupLeft = node.left.type === "ConditionalExpression";
+			groupRight = node.right.type === "ConditionalExpression";
 		}
 
 		if (groupLeft) state.add("(");
