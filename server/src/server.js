@@ -9,13 +9,14 @@ import {
 	Range,
 	Position,
 	Location,
+	WorkspaceFolder,
 } from "vscode-languageserver/node.js";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { parse, indexesToRange } from "@pivotass/zvelte/parser";
 import { walk } from "zimmerframe";
-import { existsSync } from "fs";
-import { join } from "path";
+import { existsSync, readdirSync } from "fs";
+import { basename, join } from "path";
 import { format } from "./formatter.js";
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -29,13 +30,16 @@ const connection = createConnection(
 // Create a simple text document manager.
 const documents = new TextDocuments(TextDocument);
 
-connection.onInitialize(() => {
+connection.onInitialize((args) => {
 	return {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
 			documentHighlightProvider: true,
 			documentFormattingProvider: true,
 			definitionProvider: true,
+			completionProvider: {
+				triggerCharacters: ["<"],
+			},
 		},
 	};
 });
@@ -81,7 +85,7 @@ connection.onDocumentFormatting((params) => {
  */
 function getUriMeta(uri) {
 	const inZone = uri.includes("/zone.app/");
-	const origin = inZone ? /^file:(.*\/zone\.app)/.exec(uri)?.[1] ?? "" : "";
+	const origin = inZone ? (/^file:(.*\/zone\.app)/.exec(uri)?.[1] ?? "") : "";
 
 	const parserOptions = {
 		specialTag: inZone ? "zone" : undefined,
@@ -92,6 +96,49 @@ function getUriMeta(uri) {
 		origin,
 		parserOptions,
 	};
+}
+
+/**
+ * @param {string} origin
+ */
+function findAllComponents(origin) {
+	/**
+	 * @type {string[]}
+	 */
+	const zveltePaths = [];
+
+	const walk = (path = origin) => {
+		const entries = readdirSync(path, { withFileTypes: true });
+		for (const entry of entries) {
+			if (entry.isDirectory()) {
+				walk(join(path, entry.name));
+			} else if (entry.isFile() && entry.name.endsWith(".zvelte")) {
+				zveltePaths.push(join(path, entry.name));
+			}
+		}
+	};
+
+	walk();
+
+	return zveltePaths.map((uri) => {
+		const path = uri.replace(origin.replace(/^\/+/, "/"), "");
+		let php = path;
+
+		if (path.startsWith("/components")) {
+			const [, endpoint] = /^\/components\/(.*)$/.exec(path) ?? [];
+			php = `CMP/${endpoint.replace(".zvelte", "")}`;
+		} else if (path.startsWith("/apps/")) {
+			const [, app, portal, endpoint] =
+				/^\/apps\/(\w+)\/(\w+)\/(.*)$/.exec(path) ?? [];
+			php = `CMP/App/${app}/${portal}/${endpoint.replace(".zvelte", "")}`;
+		}
+
+		return {
+			uri,
+			php,
+			name: basename(uri).replace(".zvelte", ""),
+		};
+	});
 }
 
 documents.onDidChangeContent((change) => {
@@ -175,15 +222,10 @@ documents.onDidChangeContent((change) => {
 		const ast = parse(source, parserOptions);
 
 		/**
-		 * @type {Record<string, DocumentHighlight[]>}
-		 */
-		const highlights = {};
-
-		/**
 		 * @param {Pick<import("@pivotass/zvelte/types").ZvelteNode, "start" | "end">} node
 		 * @returns {import("vscode-languageserver-textdocument").Range}
 		 */
-		const nodeToRange = (node) => {
+		function nodeToRange(node) {
 			const range = indexesToRange(node.start, node.end, source);
 			return {
 				start: {
@@ -195,7 +237,12 @@ documents.onDidChangeContent((change) => {
 					character: range.end.col,
 				},
 			};
-		};
+		}
+
+		/**
+		 * @type {Record<string, DocumentHighlight[]>}
+		 */
+		const highlights = {};
 
 		ast.imports.forEach((n, i) => {
 			const specifierRange = nodeToRange(n.specifier);
@@ -210,7 +257,7 @@ documents.onDidChangeContent((change) => {
 			} else {
 				let path = importSourceToAbsolute(n);
 				if (inZone) path += ".zvelte";
-				const uri = "file:" + path;
+				const uri = "file://" + path;
 
 				definitions.push({
 					uri,
@@ -243,7 +290,7 @@ documents.onDidChangeContent((change) => {
 
 		/**
 		 *  @type {{
-		 *      node: import("@pivotass/zvelte/types").Component;
+		 *      name: string;
 		 *      range: import("vscode-languageserver").Range;
 		 *  }[]}
 		 */
@@ -255,6 +302,44 @@ documents.onDidChangeContent((change) => {
 			),
 			null,
 			{
+				Identifier(node, { next }) {
+					const range = nodeToRange(node);
+					const importPair = ast.imports.find(
+						(i) => i.specifier.name === node.name,
+					);
+
+					const nameRange = {
+						start: {
+							line: range.start.line,
+							character: range.start.character,
+						},
+						end: {
+							line: range.start.line,
+							character: range.start.character + node.name.length,
+						},
+					};
+
+					if (importPair) {
+						let path = importSourceToAbsolute(importPair);
+						if (inZone) path += ".zvelte";
+
+						definitions.push({
+							uri: "file://" + path,
+							range: nameRange,
+						});
+					}
+
+					components.push({
+						name: node.name,
+						range,
+					});
+
+					(highlights[node.name] ??= []).push({
+						range: nameRange,
+					});
+
+					next();
+				},
 				Component(node, { next }) {
 					const range = nodeToRange(node);
 					const importPair = ast.imports.find(
@@ -273,24 +358,18 @@ documents.onDidChangeContent((change) => {
 						},
 					};
 
-					if (!importPair) {
-						diagnostics.push({
-							message: `"${node.name}" is not defined, forgot an import tag?`,
-							severity: DiagnosticSeverity.Error,
-							range,
-						});
-					} else {
+					if (importPair) {
 						let path = importSourceToAbsolute(importPair);
 						if (inZone) path += ".zvelte";
 
 						definitions.push({
-							uri: "file:" + path,
+							uri: "file://" + path,
 							range: nameRange,
 						});
 					}
 
 					components.push({
-						node,
+						name: node.name,
 						range,
 					});
 
@@ -304,7 +383,7 @@ documents.onDidChangeContent((change) => {
 		);
 
 		for (const node of ast.imports) {
-			if (!components.find((c) => c.node.name === node.specifier.name)) {
+			if (!components.find((c) => c.name === node.specifier.name)) {
 				diagnostics.push({
 					message: `Unused import`,
 					severity: DiagnosticSeverity.Hint,
@@ -339,6 +418,38 @@ documents.onDidChangeContent((change) => {
 			}
 
 			return null;
+		});
+
+		connection.onCompletion((params, token, workDoneProgress) => {
+			const cmps = findAllComponents(origin);
+
+			return {
+				isIncomplete: false,
+				items: cmps.map((c) => {
+					const additionalTextEdits = [];
+
+					if (
+						!ast.imports.find(
+							(def) => def.specifier.name === c.name,
+						)
+					) {
+						additionalTextEdits.push({
+							newText: `{% import ${c.name} from "${c.php}" %}\n`,
+							range: {
+								start: { line: 0, character: 0 },
+								end: { line: 0, character: 0 },
+							},
+						});
+					}
+
+					return {
+						label: c.name,
+						insertText: `${c.name}></${c.name}>`,
+						documentation: c.php,
+						additionalTextEdits,
+					};
+				}),
+			};
 		});
 	} catch (/** @type {any} */ error) {
 		const { start, end } = error.range;
