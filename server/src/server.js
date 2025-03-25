@@ -129,7 +129,7 @@ function findAllComponents(origin) {
 			php = `CMP/${endpoint.replace(".zvelte", "")}`;
 		} else if (path.startsWith("/apps/")) {
 			const [, app, portal, endpoint] =
-				/^\/apps\/(\w+)\/(\w+)\/(.*)$/.exec(path) ?? [];
+				/^\/apps\/(\w+)\/(\w+)\/components\/(.*)$/.exec(path) ?? [];
 			php = `CMP/App/${app}/${portal}/${endpoint.replace(".zvelte", "")}`;
 		}
 
