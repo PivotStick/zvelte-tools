@@ -87,6 +87,28 @@ const visitors = {
 
 		const { cleaned } = cleanNodes(node.fragment.nodes, { trim: true });
 
+		if (node.zs) {
+			state.add(`<script lang="zs">`);
+
+			if (node.zs.body.length) {
+				state.indent();
+
+				for (const stmt of node.zs.body) {
+					state.nl();
+					visit(stmt);
+				}
+
+				state.dedent();
+				state.nl();
+			}
+
+			state.add(`</script>`);
+
+			if (cleaned.length) {
+				state.nl(2);
+			}
+		}
+
 		if (cleaned.length) {
 			if (node.imports.length) state.nl();
 
@@ -190,7 +212,7 @@ const visitors = {
 			const quotted =
 				node.value.length > 1 || node.value[0].type !== "ExpressionTag";
 
-			let quote = node.doubleQuotes ?? true ? '"' : "'";
+			let quote = (node.doubleQuotes ?? true) ? '"' : "'";
 
 			// prefer '"' if possible
 			if (
@@ -312,6 +334,26 @@ const visitors = {
 		}
 		state.add(") => ");
 		visit(node.body);
+	},
+
+	BlockStatement(node, { state, visit }) {
+		state.add("{");
+		state.indent();
+
+		for (let i = 0; i < node.body.length; i++) {
+			state.nl();
+			const child = node.body[i];
+			visit(child);
+		}
+
+		state.dedent();
+		state.nl();
+		state.add("}");
+	},
+
+	ExpressionStatement(node, { state, visit }) {
+		visit(node.expression);
+		state.add(";");
 	},
 
 	AssignmentExpression(node, { state, visit }) {

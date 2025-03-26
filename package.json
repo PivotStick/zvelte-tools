@@ -88,5 +88,8 @@
 		"@types/node": "^20.5.7",
 		"esbuild": "^0.23.0",
 		"typescript": "^5.2.2"
+	},
+	"dependencies": {
+		"@pivotass/zvelte": "^0.4.173"
 	}
 }
