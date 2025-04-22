@@ -9,7 +9,6 @@ import {
 	Range,
 	Position,
 	Location,
-	WorkspaceFolder,
 } from "vscode-languageserver/node.js";
 
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -148,7 +147,7 @@ documents.onDidChangeContent((change) => {
 	 * @param {import("@pivotass/zvelte/types").ImportTag} node
 	 */
 	function importSourceToAbsolute(node) {
-		if (inZone) {
+		if (inZone && /^[A-Z]/.test(node.specifier.name)) {
 			if (node.source.value.startsWith("CMP/App")) {
 				const regex = /^CMP\/App\/([^/]+)\/([^/]+)\/(.+)$/;
 				const match = regex.exec(node.source.value);
@@ -191,12 +190,12 @@ documents.onDidChangeContent((change) => {
 	 * @param {import("@pivotass/zvelte/types").ImportTag} node
 	 */
 	function resolveCMPImport(node) {
-		if (!inZone) return;
+		if (!inZone || !/^[A-Z]/.test(node.specifier.name)) return;
 
 		try {
 			const fullpath = importSourceToAbsolute(node);
 
-			if (!existsSync(fullpath + ".php")) {
+			if (!existsSync(fullpath + ".zvelte")) {
 				return `Component \`${node.specifier.name}\` not found.`;
 			}
 		} catch (error) {

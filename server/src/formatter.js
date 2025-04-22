@@ -138,6 +138,12 @@ const visitors = {
 		}
 	},
 
+	VariableTag(node, { state, visit }) {
+		state.add("{% set ");
+		visit(node.assignment);
+		state.add(" %}");
+	},
+
 	ImportTag(node, { state }) {
 		state.add(
 			`{% import ${node.specifier.name} from "${node.source.value}" %}`,
@@ -333,21 +339,34 @@ const visitors = {
 			}
 		}
 		state.add(") => ");
+
+		if (node.body.type === "ObjectExpression") {
+			state.add("(");
+		}
+
 		visit(node.body);
+
+		if (node.body.type === "ObjectExpression") {
+			state.add(")");
+		}
 	},
 
 	BlockStatement(node, { state, visit }) {
 		state.add("{");
-		state.indent();
 
-		for (let i = 0; i < node.body.length; i++) {
+		if (node.body.length) {
+			state.indent();
+
+			for (let i = 0; i < node.body.length; i++) {
+				state.nl();
+				const child = node.body[i];
+				visit(child);
+			}
+
+			state.dedent();
 			state.nl();
-			const child = node.body[i];
-			visit(child);
 		}
 
-		state.dedent();
-		state.nl();
 		state.add("}");
 	},
 
@@ -599,7 +618,16 @@ const visitors = {
 	},
 
 	MemberExpression(node, { state, visit }) {
+		const group =
+			node.object.type !== "Identifier" &&
+			node.object.type !== "MemberExpression";
+
+		if (group) state.add("(");
+
 		visit(node.object);
+
+		if (group) state.add(")");
+
 		if (node.optional) {
 			state.add("?.");
 		}
