@@ -15,7 +15,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import { parse, indexesToRange } from "@pivotass/zvelte/parser";
 import { walk } from "zimmerframe";
 import { existsSync, readdirSync } from "fs";
-import { basename, join } from "path";
+import { basename, dirname, join } from "path";
 import { format } from "./formatter.js";
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -161,7 +161,7 @@ documents.onDidChangeContent((change) => {
 					app,
 					portal,
 					"components",
-					path,
+					path + ".zvelte",
 				);
 
 				return fullpath;
@@ -170,18 +170,18 @@ documents.onDidChangeContent((change) => {
 			const regex = /^CMP\/(.+)$/;
 			const match = regex.exec(node.source.value);
 
-			if (!match) throw new Error("Namespace malformed.");
+			if (match) {
+				const [, path] = match;
+				const fullpath = join(origin, "components", path + ".zvelte");
 
-			const [, path] = match;
-			const fullpath = join(origin, "components", path);
-
-			return fullpath;
+				return fullpath;
+			}
 		}
 
 		return node.source.value.startsWith("/")
 			? node.source.value
 			: join(
-					change.document.uri.slice("file:".length),
+					dirname(change.document.uri.slice("file:/".length)),
 					node.source.value,
 				);
 	}
@@ -195,8 +195,8 @@ documents.onDidChangeContent((change) => {
 		try {
 			const fullpath = importSourceToAbsolute(node);
 
-			if (!existsSync(fullpath + ".zvelte")) {
-				return `Component \`${node.specifier.name}\` not found.`;
+			if (!existsSync(fullpath)) {
+				return `Component \`${fullpath}\` not found.`;
 			}
 		} catch (error) {
 			if (typeof error === "string") return error;
@@ -255,7 +255,6 @@ documents.onDidChangeContent((change) => {
 				});
 			} else {
 				let path = importSourceToAbsolute(n);
-				if (inZone) path += ".zvelte";
 				const uri = "file://" + path;
 
 				definitions.push({
@@ -320,7 +319,6 @@ documents.onDidChangeContent((change) => {
 
 					if (importPair) {
 						let path = importSourceToAbsolute(importPair);
-						if (inZone) path += ".zvelte";
 
 						definitions.push({
 							uri: "file://" + path,
@@ -359,7 +357,6 @@ documents.onDidChangeContent((change) => {
 
 					if (importPair) {
 						let path = importSourceToAbsolute(importPair);
-						if (inZone) path += ".zvelte";
 
 						definitions.push({
 							uri: "file://" + path,

@@ -90,6 +90,6 @@
 		"typescript": "^5.2.2"
 	},
 	"dependencies": {
-		"@pivotass/zvelte": "^0.4.184"
+		"@pivotass/zvelte": "^0.4.192"
 	}
 }

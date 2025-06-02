@@ -504,8 +504,13 @@ const visitors = {
 				node.right.type === "BinaryExpression" &&
 				(node.right.operator === "+" || node.right.operator === "-");
 		} else if (node.operator === "~") {
-			groupLeft = node.left.type === "ConditionalExpression";
-			groupRight = node.right.type === "ConditionalExpression";
+			groupLeft =
+				node.left.type === "ConditionalExpression" ||
+				node.left.type === "LogicalExpression";
+
+			groupRight =
+				node.right.type === "ConditionalExpression" ||
+				node.right.type === "LogicalExpression";
 		}
 
 		if (groupLeft) state.add("(");
