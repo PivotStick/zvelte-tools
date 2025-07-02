@@ -511,6 +511,9 @@ const visitors = {
 			groupRight =
 				node.right.type === "ConditionalExpression" ||
 				node.right.type === "LogicalExpression";
+		} else if (node.operator === "==" || node.operator === "===") {
+			groupLeft = node.left.type === "LogicalExpression";
+			groupRight = node.right.type === "LogicalExpression";
 		}
 
 		if (groupLeft) state.add("(");
@@ -927,8 +930,8 @@ const visitors = {
  * @param {T} node
  * @param {T["type"][]} types
  */
-function group({ state, visit }, node, types) {
-	const test = types.includes(node.type);
+function group({ state, visit }, node, types = []) {
+	const test = types.includes(node.type) || types.length === 0;
 	if (test) state.add("(");
 	visit(node);
 	if (test) state.add(")");
