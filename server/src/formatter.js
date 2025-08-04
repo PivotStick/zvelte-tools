@@ -657,14 +657,24 @@ const visitors = {
 		let groupLeft = false;
 		let groupRight = false;
 
-		if (node.operator === "and") {
+		if (node.operator === "and" || node.operator === "&&") {
 			groupLeft =
 				node.left.type === "LogicalExpression" &&
-				node.left.operator === "or";
+				(node.left.operator === "or" || node.left.operator === "||");
 
 			groupRight =
 				node.right.type === "LogicalExpression" &&
-				node.right.operator === "or";
+				(node.right.operator === "or" || node.right.operator === "||");
+		}
+
+		if (node.operator === "or" || node.operator === "||") {
+			groupLeft =
+				node.left.type === "LogicalExpression" &&
+				(node.left.operator === "and" || node.left.operator === "&&");
+
+			groupRight =
+				node.right.type === "LogicalExpression" &&
+				(node.right.operator === "and" || node.right.operator === "&&");
 		}
 
 		if (groupLeft) state.add("(");
