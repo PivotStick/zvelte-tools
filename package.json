@@ -5,7 +5,7 @@
 	"publisher": "zvelte",
 	"icon": "icons/logo.png",
 	"description": "Language supports for Zvelte",
-	"version": "0.1.27",
+	"version": "0.1.28",
 	"engines": {
 		"vscode": "^1.90.0"
 	},
