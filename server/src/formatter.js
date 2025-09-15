@@ -497,12 +497,18 @@ const visitors = {
 
 		if (node.operator === "*" || node.operator === "/") {
 			groupLeft =
-				node.left.type === "BinaryExpression" &&
-				(node.left.operator === "+" || node.left.operator === "-");
+				(node.left.type === "BinaryExpression" &&
+					(node.left.operator === "+" ||
+						node.left.operator === "-")) ||
+				node.left.type === "ConditionalExpression" ||
+				node.left.type === "LogicalExpression";
 
 			groupRight =
-				node.right.type === "BinaryExpression" &&
-				(node.right.operator === "+" || node.right.operator === "-");
+				(node.right.type === "BinaryExpression" &&
+					(node.right.operator === "+" ||
+						node.right.operator === "-")) ||
+				node.left.type === "ConditionalExpression" ||
+				node.left.type === "LogicalExpression";
 		} else if (node.operator === "~") {
 			groupLeft =
 				node.left.type === "ConditionalExpression" ||
