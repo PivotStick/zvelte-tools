@@ -722,6 +722,16 @@ const visitors = {
 		state.add(" }}");
 	},
 
+	LangTag(node, { state, visit }) {
+		state.add("{{ @lang ");
+		for (let i = 0; i < node.expressions.length; i++) {
+			const expression = node.expressions[i];
+			visit(expression);
+			state.add(i !== node.expressions.length - 1 ? ", " : "");
+		}
+		state.add(" }}");
+	},
+
 	ConditionalExpression(node, { state, visit }) {
 		const indent = state.hasNl(node.test.end, node.consequent.start);
 		const spacing = indent ? `\n` : " ";
