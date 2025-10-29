@@ -352,6 +352,9 @@
 					"begin": "(['\"])",
 					"end": "\\1",
 					"patterns": [{ "include": "#interpolation" }]
+				},
+				{
+					"include": "#special-tags-void"
 				}
 			]
 		},
@@ -435,4 +438,3 @@
 	},
 	"scopeName": "source.zvelte"
 }
-
